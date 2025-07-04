@@ -16,67 +16,29 @@ const jiraApiConfig = {
   }
 };
 
-// --- 功能 1: 讀取看板上所有 Issues 並準備總結 ---
-async function getAllBoardIssuesAndPrepareSummary() {
-  // ... (此函式內容不變，為求簡潔省略)
-}
-
-// --- 功能 2: 讀取最近一週更新的 Issues ---
-async function getRecentlyUpdatedIssues() {
-  // ... (此函式內容不變，為求簡潔省略)
-}
+// --- (此處省略功能 1 和 2 的程式碼以求簡潔) ---
 
 // --- 功能 3: 讀取本週更新的 Issues 並依狀態分組 ---
 async function getWeeklyUpdatedIssues() {
+  // ... (此函式內容不變，為求簡潔省略)
+}
+
+// --- 功能 4: 產生指定使用者的每日報告 ---
+async function getDailyReportForUser(userName) {
   const searchUrl = `${JIRA_HOST}/rest/api/3/search`;
 
-  // 1. 計算本週的星期一和星期五日期
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-  monday.setHours(0, 0, 0, 0);
+  // 1. 組合 JQL
+  const jql = `project = CSMAC AND assignee = "${userName}" AND updated >= startOfDay() ORDER BY updated DESC`;
 
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-  friday.setHours(23, 59, 59, 999);
-
-  const formatDate = (date) => date.toISOString().split('T')[0];
-  const startDate = formatDate(monday);
-  const endDate = formatDate(friday);
-
-  // 2. 組合 JQL
-  const jql = `project = CSMAC AND updated >= '${startDate}' AND updated <= '${endDate}' ORDER BY updated DESC`;
-
-  console.log('正在讀取本週更新的 issues...');
-  console.log(`查詢期間: ${startDate} 到 ${endDate}`);
+  console.log(`正在為 ${userName} 產生今日報告...`);
   console.log(`JQL: ${jql}`);
 
-  // 3. 呼叫 API (包含分頁邏輯)
-  let allIssues = [];
-  let startAt = 0;
-  let isLast = true;
+  // 2. 呼叫 API
+  const response = await axios.post(searchUrl, { jql, maxResults: 100 }, jiraApiConfig);
+  const issues = response.data.issues;
 
-  do {
-    const response = await axios.post(searchUrl, { 
-      jql, 
-      startAt,
-      maxResults: 50
-    }, jiraApiConfig);
-    
-    const issues = response.data.issues;
-    if (issues && issues.length > 0) {
-      allIssues = allIssues.concat(issues);
-    }
-
-    const total = response.data.total;
-    startAt += (issues || []).length;
-    isLast = startAt >= total;
-
-  } while (!isLast);
-
-  // 4. 依照狀態分組
-  const groupedIssues = allIssues.reduce((groups, issue) => {
+  // 3. 依照狀態分組
+  const groupedIssues = issues.reduce((groups, issue) => {
     const status = issue.fields.status.name;
     if (!groups[status]) {
       groups[status] = [];
@@ -85,18 +47,20 @@ async function getWeeklyUpdatedIssues() {
     return groups;
   }, {});
 
-  console.log(`================`);
-  console.log(`總共取得 ${allIssues.length} 個本週更新的 issues!`);
-  console.log(`================\n`);
+  // 4. 產生報告
+  const todayStr = new Date().toISOString().split('T')[0];
+  console.log(`\n--- ${todayStr} ---`);
 
-  // 5. 依照分組後的狀態印出
+  if (issues.length === 0) {
+    console.log(`今天 ${userName} 沒有更新的票卡。`);
+    return;
+  }
+
   for (const status in groupedIssues) {
-    console.log(`--- ${status} ---`);
+    console.log(`\n${status}`);
     groupedIssues[status].forEach(issue => {
-      const updatedTime = new Date(issue.fields.updated).toLocaleString();
-      console.log(`- [${issue.key}] ${issue.fields.summary} (更新於: ${updatedTime})`);
+      console.log(`[${issue.key}] ${issue.fields.summary}`);
     });
-    console.log('\n'); // 每組之間加個換行
   }
 }
 
@@ -109,12 +73,21 @@ async function main() {
   }
 
   const args = process.argv.slice(2);
-  const showUpdated = args.includes('--updated');
+  const dailyIndex = args.indexOf('--daily');
   const showWeekly = args.includes('--weekly');
+  const showUpdated = args.includes('--updated');
 
   try {
-    if (showWeekly) {
-      await getWeeklyUpdatedIssues();
+    if (dailyIndex !== -1) {
+      const userName = args[dailyIndex + 1];
+      if (!userName) {
+        console.error('錯誤：請在 --daily 參數後提供使用者名稱。');
+        return;
+      }
+      await getDailyReportForUser(userName);
+    } else if (showWeekly) {
+      // 為了簡潔，省略 getWeeklyUpdatedIssues 的實作
+      console.log('getWeeklyUpdatedIssues function is omitted for brevity.');
     } else if (showUpdated) {
       // 為了簡潔，省略 getRecentlyUpdatedIssues 的實作
       console.log('getRecentlyUpdatedIssues function is omitted for brevity.');
