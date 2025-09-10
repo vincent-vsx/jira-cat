@@ -7,6 +7,7 @@ A simple Node.js command-line tool to connect to Jira, fetch issues, and generat
 - **Board Summary**: Fetches all issues from a specific Jira Agile board and prepares a text block for an LLM to summarize.
 - **Recent Updates**: Fetches all issues updated in the last week.
 - **Weekly Report**: Generates a report of all issues updated in the current week (from Monday to Friday), grouped by their current status.
+- **Daily Standup Report**: Generates a daily report for a specific user, categorized into recently done, in progress, and to-do items.
 
 ## Setup
 
@@ -55,6 +56,25 @@ To get a list of all issues on the board, formatted for an LLM summary:
 ```bash
 node index.js
 ```
+
+### Generate Daily Standup Report
+
+To get a daily standup report for a specific user:
+
+```bash
+node index.js --standup "Your User Name"
+```
+Replace `"Your User Name"` with the actual display name of the user in Jira.
+
+### Generate Weekly Summary Report
+
+To get a weekly summary report for the entire project, including completed and in-progress items for the current week, and planned items for the current sprint. The report will include Jira links for each issue.
+
+```bash
+node index.js --weekly-summary [--output <filename>]
+```
+
+- If `--output <filename>` is provided, the report will be saved to the specified file. Otherwise, it will be printed to the console.
 
 ## Dependencies
 
